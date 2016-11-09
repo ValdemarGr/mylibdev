@@ -1,8 +1,15 @@
 #pragma once
 
+#define _DEVMODE 0
+
 #include <functional>
 #include <boost\asio.hpp>
+#if _DEVMODE
+#include "data_wrapper.hpp"
+#else
 #include <mylib\data_wrapper.hpp>
+#endif
+
 
 namespace util
 {
