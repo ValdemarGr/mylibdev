@@ -110,6 +110,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="data_wrapper.hpp" />
+    <ClInclude Include="math_vector.hpp" />
+    <ClInclude Include="matrix.hpp" />
+    <ClInclude Include="tcp_client.hpp" />
+    <ClInclude Include="tcp_server.hpp" />
+    <ClInclude Include="work_queue.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
