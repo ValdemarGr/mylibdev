@@ -38,7 +38,6 @@ namespace util
 		std::lock_guard<std::mutex> grd(_mtx);
 		std::shared_ptr<std::vector<std::shared_ptr<_T>>> temp(_ptr);
 
-		_ptr = nullptr;
 		_ptr = std::make_shared<std::vector<std::shared_ptr<_T>>>();
 
 		return temp;

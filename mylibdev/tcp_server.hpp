@@ -12,7 +12,7 @@
 #if _DEVMODE
 #include "data_wrapper.hpp"
 #else
-#include <mylib\data_wrapper.hpp>
+#include <mylibdev\data_wrapper.hpp>
 #endif
 
 namespace util
@@ -32,6 +32,9 @@ namespace util
 
 		void accept();
 
+		boost::asio::ip::tcp::socket& _get_sock() { return this->_client_sock; }
+		boost::asio::ip::tcp::acceptor& _get_acceptor() { return this->_acceptor; }
+
 		std::vector<std::shared_ptr<util::tcp_server::client>>& get_clients() { return this->_client_vect; }
 
 		std::function<void(std::reference_wrapper<util::tcp_server::client>)> _accept_handle = [](util::tcp_server::client&) {};
@@ -43,20 +46,25 @@ namespace util
 	class tcp_server::client
 	{
 	private:
-
 		boost::asio::ip::tcp::socket _sock;
 	public:
+		std::size_t _id = 0;
 		std::vector<char> _dat_vect;
 		std::size_t* _len_ptr;
 		std::shared_ptr<util::tcp_server> _parent_ptr;
 
-		client(boost::asio::ip::tcp::socket&, std::shared_ptr<tcp_server>);
+		client(boost::asio::ip::tcp::socket&, std::shared_ptr<tcp_server>, std::size_t);
 		~client(){}
 
 		void read();
 
 		void write(client&);
 		void write(std::string&);
+		void write(util::data_wrapper&);
+
+		char* get_data();
+		std::size_t get_data_length();
+		util::data_wrapper get_wrapper();
 	};
 
 	inline util::tcp_server::tcp_server(boost::asio::io_service & service, unsigned short port)
@@ -69,7 +77,7 @@ namespace util
 		auto handler = [this](boost::system::error_code _ec) {
 			if (!_ec)
 			{
-				auto _client(std::make_shared<util::tcp_server::client>(std::move(this->_client_sock), std::shared_ptr<tcp_server>(this)));
+				auto _client(std::make_shared<util::tcp_server::client>(std::move(this->_client_sock), std::shared_ptr<tcp_server>(this), get_clients().size()));
 				get_clients().push_back(_client);
 
 				_accept_handle(*_client);
@@ -81,8 +89,8 @@ namespace util
 		this->_acceptor.async_accept(this->_client_sock, handler);
 	}
 
-	inline util::tcp_server::client::client(boost::asio::ip::tcp::socket& socket, std::shared_ptr<tcp_server> parent_ptr)
-		: _sock(std::move(socket)), _parent_ptr(parent_ptr)
+	inline util::tcp_server::client::client(boost::asio::ip::tcp::socket& socket, std::shared_ptr<tcp_server> parent_ptr, std::size_t id)
+		: _sock(std::move(socket)), _parent_ptr(parent_ptr), _id(id)
 	{
 		_dat_vect.resize(16);
 
@@ -162,9 +170,44 @@ namespace util
 
 					delete[] buf;
 				}
+				else 
+					delete[] buf;
 			};
 
 			boost::asio::async_write(_sock, boost::asio::buffer(buf, *tmp_len_ptr), handler);
 		}
+	}
+
+	inline void util::tcp_server::client::write(util::data_wrapper& _dat)
+	{
+		auto handler = [this](boost::system::error_code _e, std::size_t _len) {
+			if (!_e)
+			{
+				_parent_ptr->_write_handle(*this);
+			}
+		};
+
+		boost::asio::async_write(this->_sock, boost::asio::buffer(_dat.get_buffer(), _dat.get_len()), handler);
+	}
+
+	inline char* util::tcp_server::client::get_data()
+	{
+		return _dat_vect.data() + sizeof(std::size_t);
+	}
+
+	inline std::size_t util::tcp_server::client::get_data_length()
+	{
+		return ((*_len_ptr) - sizeof(std::size_t));
+	}
+
+	inline util::data_wrapper util::tcp_server::client::get_wrapper()
+	{
+		util::data_wrapper return_wrapper;
+
+		for (size_t i = 0; i < *_len_ptr; i++)
+			return_wrapper.get_vector()[i] = *(this->_dat_vect.data() + i);
+		return_wrapper.update_header();
+
+		return return_wrapper;
 	}
 }
