@@ -53,17 +53,39 @@ namespace util
 
 		void reset_iterator();
 
+		char* get_buff_excluding_header();
 		char* get_buffer();
 		std::vector<char>& get_vector();
 
-		std::size_t get_len();
+		std::size_t get_full_len();
+		std::size_t get_data_len();
 
 		template<typename _T>
 		data_wrapper& operator<<(const _T&);
 
 		template<typename _T>
 		data_wrapper& operator>>(_T&);
+
+		template<typename _T>
+		void ins(const _T&);
+
+		template<typename _T>
+		_T get();
 	};
+
+	template<typename _T>
+	inline void data_wrapper::ins(const _T& type_arg)
+	{
+		*this << type_arg;
+	}
+
+	template<typename _T>
+	inline _T data_wrapper::get()
+	{
+		_T ret_v;
+		*this >> ret_v;
+		return ret_v;
+	}
 
 	template<typename _T>
 	inline data_wrapper & data_wrapper::operator<<(const _T& type_arg)
@@ -77,7 +99,7 @@ namespace util
 		{
 			//Here the dest is the data buffer, the source is the type and the size is the size of the type
 			std::memcpy(this->_data.data() + this->_current_element, &type_arg, sizeof(_T));
-			//Move the "data iterator" forward so the next data can be insereted
+			//Move the "data iterator" forward so the next data can be inserted
 			this->_current_element += sizeof(_T);
 
 			//Update header
@@ -148,6 +170,11 @@ namespace util
 	{
 	}
 
+	inline char* data_wrapper::get_buff_excluding_header()
+	{
+		return (this->_data.data() + sizeof(std::size_t));
+	}
+
 	inline char* data_wrapper::get_buffer()
 	{
 		return this->_data.data();
@@ -158,8 +185,13 @@ namespace util
 		return this->_data;
 	}
 
-	inline std::size_t data_wrapper::get_len()
+	inline std::size_t data_wrapper::get_full_len()
 	{
 		return this->_current_element;
+	}
+
+	inline std::size_t data_wrapper::get_data_len()
+	{
+		return this->_current_element - sizeof(std::size_t);
 	}
 }

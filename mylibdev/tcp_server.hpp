@@ -6,6 +6,7 @@
 #include <utility>
 #include <memory>
 #include <functional>
+#include <algorithm>
 
 #include <boost\asio.hpp>
 
@@ -59,12 +60,16 @@ namespace util
 		void read();
 
 		void write(client&);
-		void write(std::string&);
 		void write(util::data_wrapper&);
 
 		char* get_data();
 		std::size_t get_data_length();
+		std::size_t get_full_length();
 		util::data_wrapper get_wrapper();
+
+		void remove_this_client();
+
+		boost::asio::ip::tcp::socket& _get_sock() { return this->_sock; }
 	};
 
 	inline util::tcp_server::tcp_server(boost::asio::io_service & service, unsigned short port)
@@ -126,6 +131,9 @@ namespace util
 
 
 				boost::asio::async_read(_sock, boost::asio::buffer(_dat_vect.data() + sizeof(std::size_t), *_len_ptr - sizeof(std::size_t)), handler);
+			} else {
+				//Assume connection is dead
+				remove_this_client();
 			}
 		};
 
@@ -148,36 +156,6 @@ namespace util
 		}
 	}
 
-	inline void util::tcp_server::client::write(std::string& _str)
-	{
-		_len_ptr = (std::size_t*)_dat_vect.data();
-		if (4 < *_len_ptr)
-		{
-			char* buf = new char[_str.size() + util::data_wrapper::header_length];
-			std::size_t* tmp_len_ptr = (std::size_t*)buf;
-
-			*tmp_len_ptr = _str.size() + sizeof(std::size_t);
-
-			for (size_t i = 0; i < _str.size(); i++)
-			{
-				*(buf + sizeof(std::size_t) + i) = _str[i];
-			}
-
-			auto handler = [this, buf](boost::system::error_code _ec, std::size_t _len) {
-				if (!_ec)
-				{
-					_parent_ptr->_write_handle(*this);
-
-					delete[] buf;
-				}
-				else 
-					delete[] buf;
-			};
-
-			boost::asio::async_write(_sock, boost::asio::buffer(buf, *tmp_len_ptr), handler);
-		}
-	}
-
 	inline void util::tcp_server::client::write(util::data_wrapper& _dat)
 	{
 		auto handler = [this](boost::system::error_code _e, std::size_t _len) {
@@ -187,7 +165,7 @@ namespace util
 			}
 		};
 
-		boost::asio::async_write(this->_sock, boost::asio::buffer(_dat.get_buffer(), _dat.get_len()), handler);
+		boost::asio::async_write(this->_sock, boost::asio::buffer(_dat.get_buffer(), _dat.get_full_len()), handler);
 	}
 
 	inline char* util::tcp_server::client::get_data()
@@ -200,14 +178,26 @@ namespace util
 		return ((*_len_ptr) - sizeof(std::size_t));
 	}
 
+	inline std::size_t util::tcp_server::client::get_full_length()
+	{
+		return *_len_ptr;
+	}
+
 	inline util::data_wrapper util::tcp_server::client::get_wrapper()
 	{
 		util::data_wrapper return_wrapper;
 
-		for (size_t i = 0; i < *_len_ptr; i++)
-			return_wrapper.get_vector()[i] = *(this->_dat_vect.data() + i);
+		for (size_t i = 0; i < this->get_data_length(); i++)
+			return_wrapper << *(this->_dat_vect.data() + i);
 		return_wrapper.update_header();
 
 		return return_wrapper;
+	}
+
+	inline void util::tcp_server::client::remove_this_client()
+	{
+		this->_parent_ptr->get_clients().erase(std::find_if(std::begin(this->_parent_ptr->get_clients()), std::end(this->_parent_ptr->get_clients()), [&](std::shared_ptr<util::tcp_server::client>& cp) {
+			return cp->_id == this->_id;
+		}));
 	}
 }
