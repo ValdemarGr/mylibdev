@@ -6,7 +6,7 @@
 
 namespace util
 {
-	class queued_condition_variable : std::condition_variable
+	class queued_condition_variable : public std::condition_variable
 	{
 	private:
 		std::mutex _mtx;
@@ -23,7 +23,6 @@ namespace util
 				{
 					//Consume the notify by not waiting
 					_notifies--;
-					_Lck.lock();
 					return;
 				}
 			}
