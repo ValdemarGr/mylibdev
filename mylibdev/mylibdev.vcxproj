@@ -125,6 +125,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="cvqueue.hpp" />
     <ClInclude Include="data_wrapper.hpp" />
     <ClInclude Include="math_vector.hpp" />
     <ClInclude Include="matrix.hpp" />
